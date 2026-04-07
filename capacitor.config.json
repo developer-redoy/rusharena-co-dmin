@@ -1,0 +1,10 @@
+{
+  "appId": "com.rusharenaadmin.app",
+  "appName": "Admin RushArena ",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://www.rusharena-admin.site/",
+    "cleartext": false
+  }
+}

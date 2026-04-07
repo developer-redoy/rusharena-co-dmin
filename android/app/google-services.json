@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "380978887157",
+    "project_id": "rusharenaadmin",
+    "storage_bucket": "rusharenaadmin.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:380978887157:android:732603eb352ac5893f08bc",
+        "android_client_info": {
+          "package_name": "com.rusharenaadmin.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAVBt9fiutzZSG-gpQOY8C4krjkB3m2d8w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
