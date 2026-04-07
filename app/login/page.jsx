@@ -2,25 +2,17 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
 import Image from "next/image";
 import { Eye, EyeOff } from "lucide-react";
 import axios from "axios";
-
-import { loginSchema } from "@/lib/zodSchema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { web_signup, web_forgot_password } from "@/routes/websiteRoute";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Logo from "@/public/images/logo.jpg";
 import { useRouter } from "next/navigation";
-
 import { Preferences } from "@capacitor/preferences";
-
 import ButtonLoading from "@/app/component/buttonLoading";
 import { showToast } from "@/app/component/application/tostify";
-import { Button } from "@/components/ui/button";
 
 import {
   MatchType1,
