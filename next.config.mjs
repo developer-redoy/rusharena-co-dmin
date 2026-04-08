@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    unoptimized: true,
+    unoptimized: true, // keep this for remote images
     remotePatterns: [
       {
         protocol: "https",
@@ -11,6 +11,9 @@ const nextConfig = {
         pathname: "/**",
       },
     ],
+  },
+  experimental: {
+    serverActions: true, // optional if you use server actions
   },
 };
 
