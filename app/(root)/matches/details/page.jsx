@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import MatchDetailsContent from "./MatchDetailsContent";
 
+export const dynamic = "force-dynamic"; // 🔥 IMPORTANT
+
 export default function Page() {
   return (
-    <Suspense fallback={<div className="text-white p-5">Loading...</div>}>
+    <Suspense fallback={<div>Loading...</div>}>
       <MatchDetailsContent />
     </Suspense>
   );
