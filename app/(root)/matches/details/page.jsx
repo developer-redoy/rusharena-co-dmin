@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import ButtonLoading from "@/app/component/buttonLoading";
 import { showToast } from "@/app/component/application/tostify";
 
+export const dynamic = "force-dynamic"; // crucial for useSearchParams
+
 export default function MatchDetails() {
   const searchParams = useSearchParams();
   const matchId = searchParams.get("matchId");
