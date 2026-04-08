@@ -8,17 +8,10 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const matchType = searchParams.get("type");
-    const { value } = await Preferences.get({ key: "access_token" });
 
-    if (!matchType || !value) {
+    if (!matchType) {
       return new Response(
         JSON.stringify({ message: "Match type is required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } },
-      );
-    }
-    if (matchType !== value) {
-      return new Response(
-        JSON.stringify({ message: "Unexpected match type" }),
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
