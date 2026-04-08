@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import ButtonLoading from "@/app/component/buttonLoading";
 import { showToast } from "@/app/component/application/tostify";
 
-export default function MatchDetails() {
+export default function MatchDetailsContent() {
   const searchParams = useSearchParams();
   const matchId = searchParams.get("matchId");
   const router = useRouter();
