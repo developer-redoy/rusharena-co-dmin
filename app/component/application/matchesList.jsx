@@ -207,7 +207,7 @@ const PlayMatch = ({ type }) => {
           <Card
             key={match._id}
             className="bg-gray-800 text-white border border-gray-700 hover:bg-gray-700 transition cursor-pointer"
-            // onClick={() => router.push(`/matches/details?matchId=${match._id}`)}
+            onClick={() => router.push(`/matches/details?matchId=${match._id}`)}
           >
             <CardHeader>
               <div className="flex gap-4">
