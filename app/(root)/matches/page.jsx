@@ -49,6 +49,25 @@ export default function PlayMatchPage() {
     };
   }, [searchParams, router]);
 
+  useEffect(() => {
+    const checkaccess = async () => {
+      const { value } = await Preferences.get({ key: "access_type" });
+
+      const type = searchParams.get("type");
+
+      if (pathname === "/matches") {
+        if (!value) {
+          router.replace("/");
+          return; // ✅ prevent invalid redirect
+        }
+        if (type !== value) {
+          router.replace(`/matches?type=${encodeURIComponent(value)}`);
+          return;
+        }
+      }
+      checkaccess();
+    };
+  }, []);
   return (
     <>
       <div className="w-full p-0 m-0 flex flex-col bg-black">

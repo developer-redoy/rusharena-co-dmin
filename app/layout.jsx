@@ -1,6 +1,5 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Suspense } from "react";
 import { ToastContainer } from "react-toastify";
 import BackButtonHandler from "./component/BackButtonHandler";
 import InternetChecker from "./component/InternetChecker";
@@ -33,7 +32,6 @@ export default function RootLayout({ children }) {
         <BackButtonHandler />
 
         <InternetChecker>
-          <Suspense fallback={<div>Loading...</div>}></Suspense>
           <ProtectedRoute>{children}</ProtectedRoute>
         </InternetChecker>
 
