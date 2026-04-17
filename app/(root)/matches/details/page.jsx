@@ -85,7 +85,7 @@ export default function MatchDetails() {
       const results = players.map((player) => ({
         playerId: player.authId,
         kills: Number(player.kills) || 0,
-        wining: Number(player.wining) || 0,
+        winning: Number(player.wining) || 0,
       }));
 
       const res = await axios.post(`/api/matches/updateResults`, {

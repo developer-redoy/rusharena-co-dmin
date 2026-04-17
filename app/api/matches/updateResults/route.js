@@ -1,73 +1,151 @@
 // app/api/matches/updateResults/route.js
+
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/connectDB";
 import { response } from "@/lib/healperFunc";
 import Matches from "@/models/matches";
 import User from "@/models/user";
 import MyMathes from "@/models/myMatch";
+import ResultMatches from "@/models/resultMatch";
 
 export async function POST(req) {
+  const session = await mongoose.startSession();
+
   try {
     await connectDB();
 
     const { matchId, results } = await req.json();
 
+    // ✅ Validation
     if (!matchId || !results || !Array.isArray(results)) {
       return response(false, 400, "matchId and results are required");
     }
 
-    // 1. Find the match
-    const match = await Matches.findById(matchId);
-    if (!match) return response(false, 404, "Match not found");
+    // ✅ Start transaction
+    session.startTransaction();
 
-    //  here also check if {match.winPrize} is greater than total wining in results
-    const totalWinning = results.reduce((sum, r) => sum + (r.wining || 0), 0);
+    // ✅ Find match
+    const match = await Matches.findById(matchId).session(session);
+    if (!match) {
+      await session.abortTransaction();
+      session.endSession();
+      return response(false, 404, "Match not found");
+    }
+
+    // ✅ Prevent duplicate results
+    const existingResult = await ResultMatches.findOne({
+      serialNumber: match.serialNumber,
+    }).session(session);
+
+    if (existingResult) {
+      await session.abortTransaction();
+      session.endSession();
+      return response(false, 400, "Results already declared");
+    }
+
+    // ✅ Validate prize pool
+    const totalWinning = results.reduce((sum, r) => sum + (r.winning || 0), 0);
 
     if (totalWinning > match.winPrize) {
-      return response(false, 400, "Total winnings exceed match prize pool");
+      await session.abortTransaction();
+      session.endSession();
+      return response(false, 400, "Prize pool exceeded");
     }
+
     const notFoundPlayers = [];
     const updatedPlayers = [];
+    const finalResults = [];
 
-    // 2. Loop through results
+    // ✅ Process players
     for (const result of results) {
+      const { playerId, kills = 0, winning = 0 } = result;
+
       const joinedPlayer = match.joinedPlayers.find(
-        (p) => p.authId === result.playerId,
+        (p) => p.authId === playerId,
       );
 
       if (!joinedPlayer) {
-        notFoundPlayers.push(result.playerId);
+        notFoundPlayers.push(playerId);
         continue;
       }
 
-      // 3. Update User winbalance
-      const user = await User.findById(result.playerId);
-      if (user) {
-        user.winbalance = (user.winbalance || 0) + result.wining;
-        await user.save();
-        updatedPlayers.push(user._id);
+      const user = await User.findById(playerId).session(session);
 
-        // 4. Create MyMathes record for this user
-        await MyMathes.create({
-          userId: user._id,
-          title: match.title,
-          time: match.startTime,
-          myKills: result.kills.toString(),
-          myWin: result.wining.toString(),
-        });
-      } else {
-        notFoundPlayers.push(result.playerId);
+      if (!user) {
+        notFoundPlayers.push(playerId);
+        continue;
       }
+
+      // ✅ Update balance
+      user.winbalance = (user.winbalance || 0) + winning;
+      await user.save({ session });
+
+      updatedPlayers.push(user._id);
+
+      // ✅ MyMatches entry
+      await MyMathes.create(
+        [
+          {
+            userId: user._id,
+            title: match.title,
+            time: match.startTime,
+            myKills: kills.toString(),
+            myWin: winning.toString(),
+          },
+        ],
+        { session },
+      );
+
+      // ✅ Collect results
+      finalResults.push({
+        name: joinedPlayer.name,
+        authId: joinedPlayer.authId,
+        userName: joinedPlayer.userName,
+        kills,
+        winning,
+      });
     }
 
-    // 5. Delete the match after processing
+    // ✅ Create ResultMatches (single doc)
+    await ResultMatches.create(
+      [
+        {
+          myMatchId: match._id,
+          title: match.title,
+          matchType: match.matchType,
+          winPrize: match.winPrize,
+          perKill: match.perKill,
+          entryFee: match.entryFee,
+          entryType: match.entryType,
+          map: match.map,
+          prizeDetails: match.prizeDetails,
+          startTime: match.startTime,
+          joinedPlayers: finalResults,
+        },
+      ],
+      { session },
+    );
+    //delete match from Matches collection
     await Matches.findByIdAndDelete(matchId);
 
-    return response(true, 200, "Win balances updated and match deleted!", {
+    // ✅ Mark match completed
+    match.status = "completed";
+    await match.save({ session });
+
+    // ✅ Commit everything
+    await session.commitTransaction();
+    session.endSession();
+
+    return response(true, 200, "Results updated successfully", {
       updatedPlayers,
       notFoundPlayers,
     });
   } catch (error) {
-    console.error(error);
+    // ❌ Rollback everything if ANY error happens
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Transaction Error:", error);
     return response(false, 500, "Server error", error.message);
   }
 }
