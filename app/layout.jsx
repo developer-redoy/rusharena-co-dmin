@@ -4,6 +4,7 @@ import { ToastContainer } from "react-toastify";
 import BackButtonHandler from "./component/BackButtonHandler";
 import InternetChecker from "./component/InternetChecker";
 import ProtectedRoute from "./component/protectedRoute";
+import BrowserOverlay from "./component/BrowserOverlay";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,11 +31,11 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased sm:w-3xl m-auto`}
       >
         <BackButtonHandler />
-
-        <InternetChecker>
-          <ProtectedRoute>{children}</ProtectedRoute>
-        </InternetChecker>
-
+        <BrowserOverlay>
+          <InternetChecker>
+            <ProtectedRoute>{children}</ProtectedRoute>
+          </InternetChecker>
+        </BrowserOverlay>
         <ToastContainer />
       </body>
     </html>
