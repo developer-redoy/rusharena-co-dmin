@@ -261,7 +261,7 @@ const PlayMatch = ({ type }) => {
 
               <div className="flex gap-3 items-center">
                 <div className="flex-1">
-                  <div className="w-full bg-gray-700 rounded-full h-4">
+                  <div className="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
                     <div
                       className="bg-green-500 h-4"
                       style={{ width: `${progress}%` }}

@@ -20,23 +20,24 @@ export default function PlayMatchPage() {
 
     const validateAccess = async () => {
       try {
-        const { value } = await Preferences.get({ key: "access_token" });
+        const { value: token } = await Preferences.get({ key: "access_token" });
         const type = searchParams.get("type");
 
         // ❌ No stored type → redirect
-        if (!value || !type) {
+        if (!token || !type) {
           router.replace("/");
           return;
         }
 
-        const decoded = jwt.decode(value);
+        const decoded = jwt.decode(token);
+        const value = decoded.matchType;
 
-        if (!decoded?.matchType) {
+        if (!value || !decoded) {
           throw new Error("Invalid Access");
         }
 
         // ❌ Mismatch → fix URL instead of redirect home
-        if (type !== decoded.matchType) {
+        if (type !== value) {
           router.replace(`/matches?type=${encodeURIComponent(value)}`);
           return;
         }
