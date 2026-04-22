@@ -53,19 +53,21 @@ export default function LoginPage() {
       }
 
       const token = loginResponse.token;
+      const endTime = loginResponse?.data?.endTime;
 
       // Save token in Capacitor Preferences (works in APK + web)
-      if (token) {
-        await Preferences.set({ key: "access_token", value: token });
-        await Preferences.set({ key: "access_type", value: formData.email }); // Save the selected access type
+      if (!token || !endTime) {
+        showToast("error", loginResponse.message || "Login failed! ");
+        return;
       }
+      await Preferences.set({ key: "access_token", value: token });
 
       reset();
       showToast("success", loginResponse.message || "Login successful");
 
       // Redirect user
 
-      return router.push(process.env.NEXT_PUBLIC_APP_URL || "/");
+      return router.push("/");
     } catch (error) {
       console.error("Login error:", error);
       showToast(
@@ -100,12 +102,12 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              {/* Email */}
+              {/* matchType */}
               <div className="space-y-1">
-                <Label htmlFor="email">Select Access</Label>
+                <Label htmlFor="matchType">Select Access</Label>
                 <select
-                  id="email"
-                  {...register("email")}
+                  id="matchType"
+                  {...register("matchType")}
                   className="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <option value={MatchType1}>{MatchType1}</option>
@@ -119,13 +121,31 @@ export default function LoginPage() {
                   <option value={MatchType9}>{MatchType9}</option>
                   <option value={MatchType10}>{MatchType10}</option>
                 </select>
+                {errors.matchType && (
+                  <p className="text-red-500 dark:text-red-400 text-sm">
+                    {errors.matchType.message}
+                  </p>
+                )}
+              </div>
+
+              {/* email */}
+              <div className="space-y-1">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="example@gmail.com"
+                    {...register("email")}
+                    className="pr-10"
+                  />
+                </div>
                 {errors.email && (
                   <p className="text-red-500 dark:text-red-400 text-sm">
                     {errors.email.message}
                   </p>
                 )}
               </div>
-
               {/* Password */}
               <div className="space-y-1">
                 <Label htmlFor="password">Password</Label>

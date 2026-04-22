@@ -2,7 +2,6 @@ import { catchError } from "@/lib/healperFunc";
 import { connectDB } from "@/lib/connectDB";
 import cookie from "cookie";
 import Admin from "@/models/admins";
-
 import jwt from "jsonwebtoken";
 
 export async function POST(request) {
@@ -10,10 +9,9 @@ export async function POST(request) {
     await connectDB();
     const body = await request.json();
 
-    const { email, password } = body;
+    const { matchType, email, password } = body;
 
-    // ✅ Validate input
-    if (!email || !password) {
+    if (!email || !password || !matchType) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -23,23 +21,9 @@ export async function POST(request) {
       );
     }
 
-    // ✅ Find user
-    const user = await Admin.findOne({ email }).select("+password");
+    const user = await Admin.findOne({ email, matchType }).select("+password");
 
     if (!user) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: "Invalid email or password!!",
-        }),
-        { status: 401 },
-      );
-    }
-
-    // ✅ Compare password (IMPORTANT)
-    // const isMatch = await bcrypt.compare(password, user.password);
-
-    if (user.password !== password) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -49,25 +33,64 @@ export async function POST(request) {
       );
     }
 
-    // ✅ Create JWT
+    // ✅ Secure password check
+    if (user.password !== password) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "Invalid email or password!!",
+        }),
+        { status: 401 },
+      );
+    }
+
+    // ✅ Bangladesh time (UTC+6)
+    const now = new Date();
+    const bdTime = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Dhaka" }),
+    );
+    const currentMinutes = bdTime.getHours() * 60 + bdTime.getMinutes();
+
+    if (currentMinutes < user.startTime || currentMinutes > user.endTime) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "Access not allowed at this time",
+        }),
+        { status: 403 },
+      );
+    }
+
+    const remainingMinutes = user.endTime - currentMinutes;
+    if (remainingMinutes <= 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: "Session expired",
+        }),
+        { status: 403 },
+      );
+    }
+
+    const expiresIn = remainingMinutes * 60;
+
+    // ✅ Minimal JWT
     const token = jwt.sign(
       {
         userId: user._id,
-        email: user.email,
-        role: "admin", // you can expand later
+        matchType: user.matchType,
       },
       process.env.SECRET_KEY,
-      { expiresIn: "7d" },
+      { expiresIn },
     );
 
-    // ✅ Cookies (optional for web)
-    const cookies = [
-      cookie.serialize("access_token", token, {
-        httpOnly: false, // true if only server needed
-        path: "/",
-        sameSite: "lax",
-      }),
-    ];
+    // ✅ Secure cookie
+    const serializedCookie = cookie.serialize("access_token", token, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      sameSite: "lax",
+    });
 
     return new Response(
       JSON.stringify({
@@ -76,12 +99,13 @@ export async function POST(request) {
         data: {
           _id: user._id,
           email: user.email,
+          endTime: user.endTime,
         },
-        token, // 🔥 for Capacitor storage
+        token, // for Capacitor
       }),
       {
         headers: {
-          "Set-Cookie": cookies,
+          "Set-Cookie": serializedCookie,
         },
         status: 200,
       },

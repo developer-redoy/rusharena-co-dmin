@@ -7,11 +7,10 @@ export async function GET(request) {
   try {
     await connectDB();
 
-    const { searchParams } = new URL(request.url);
-    const token = searchParams.get("accessToken");
+    // ✅ Get token from header
+    const authHeader = request.headers.get("authorization");
 
-    // ❌ No token
-    if (!token) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -21,10 +20,11 @@ export async function GET(request) {
       );
     }
 
+    const token = authHeader.split(" ")[1];
+
     let decoded;
 
     try {
-      // ✅ Verify JWT
       decoded = jwt.verify(token, process.env.SECRET_KEY);
     } catch (err) {
       return new Response(
@@ -36,7 +36,7 @@ export async function GET(request) {
       );
     }
 
-    // ✅ Get user from DB
+    // ✅ Get user
     const user = await Admin.findById(decoded.userId);
 
     if (!user) {
@@ -49,8 +49,15 @@ export async function GET(request) {
       );
     }
 
-    // ✅ Optional: check role
-    if (decoded.role !== "admin") {
+    // ✅ Bangladesh time (UTC+6)
+    const now = new Date();
+    const bdTime = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Dhaka" }),
+    );
+    const currentMinutes = bdTime.getHours() * 60 + bdTime.getMinutes();
+
+    // ✅ Correct time validation (from DB)
+    if (currentMinutes < user.startTime || currentMinutes > user.endTime) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -60,7 +67,6 @@ export async function GET(request) {
       );
     }
 
-    // ✅ SUCCESS
     return new Response(
       JSON.stringify({
         success: true,
@@ -68,6 +74,7 @@ export async function GET(request) {
         data: {
           userId: user._id,
           email: user.email,
+          matchType: user.matchType,
         },
       }),
       { status: 200 },

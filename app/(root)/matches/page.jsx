@@ -1,85 +1,84 @@
 "use client";
+
 import PlayMatch from "@/app/component/application/matchesList";
 import { add_match } from "@/routes/websiteRoute";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Preferences } from "@capacitor/preferences";
+import jwt from "jsonwebtoken";
 
 export default function PlayMatchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const [matchType, setMatchType] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
-    const checkType = async () => {
+    const validateAccess = async () => {
       try {
-        const { value } = await Preferences.get({ key: "access_type" });
+        const { value } = await Preferences.get({ key: "access_token" });
         const type = searchParams.get("type");
 
-        // ✅ Handle missing stored value
-        if (!value) {
+        // ❌ No stored type → redirect
+        if (!value || !type) {
           router.replace("/");
           return;
         }
 
-        // ✅ Redirect if mismatch
-        if (type !== value) {
-          router.replace("/");
+        const decoded = jwt.decode(value);
+
+        if (!decoded?.matchType) {
+          throw new Error("Invalid Access");
+        }
+
+        // ❌ Mismatch → fix URL instead of redirect home
+        if (type !== decoded.matchType) {
+          router.replace(`/matches?type=${encodeURIComponent(value)}`);
           return;
         }
 
-        // ✅ Safe state update
         if (isMounted) {
           setMatchType(value);
         }
       } catch (error) {
         console.error("Error checking type:", error);
         router.replace("/");
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
 
-    checkType();
+    validateAccess();
 
     return () => {
-      isMounted = false; // prevent memory leak
+      isMounted = false;
     };
   }, [searchParams, router]);
 
-  useEffect(() => {
-    const checkaccess = async () => {
-      const { value } = await Preferences.get({ key: "access_type" });
+  // ⏳ Prevent UI flicker / invalid render
+  if (loading || !matchType) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white bg-black">
+        Loading...
+      </div>
+    );
+  }
 
-      const type = searchParams.get("type");
-
-      if (pathname === "/matches") {
-        if (!value) {
-          router.replace("/");
-          return; // ✅ prevent invalid redirect
-        }
-        if (type !== value) {
-          router.replace(`/matches?type=${encodeURIComponent(value)}`);
-          return;
-        }
-      }
-      checkaccess();
-    };
-  }, []);
   return (
     <>
-      <div className="w-full p-0 m-0 flex flex-col bg-black">
+      <div className="w-full flex flex-col bg-black">
         <Link
-          href={`${add_match}/?type=${matchType}`}
-          className="w-full text-center rounded-xl py-3 my-2 mx-auto text-xl text-white bg-[#5c5ca9]
-   
-  "
+          href={`${add_match}?type=${matchType}`}
+          className="w-full text-center rounded-xl py-3 my-2 mx-auto text-xl text-white bg-[#5c5ca9]"
         >
           + Create New Match
         </Link>
       </div>
+
       <PlayMatch type={matchType} />
     </>
   );

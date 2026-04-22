@@ -15,12 +15,11 @@ export default function ProtectedRoute({ children }) {
 
     async function checkAuth() {
       try {
-        // 🔐 Get JWT token
         const { value: token } = await Preferences.get({
           key: "access_token",
         });
 
-        // ❌ No token → redirect
+        // ❌ No token
         if (!token) {
           if (!pathname.startsWith("/login")) {
             router.replace("/login");
@@ -28,16 +27,18 @@ export default function ProtectedRoute({ children }) {
           return;
         }
 
-        // ✅ Verify token via backend
+        // ✅ Backend verification only
         const res = await axios.get("/api/checkAuth", {
-          params: { accessToken: token },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         });
 
         if (!res?.data?.success) {
           throw new Error("Invalid token");
         }
 
-        // ✅ Prevent logged-in users from visiting login
+        // ✅ Prevent login page access when logged in
         if (pathname.startsWith("/login")) {
           router.replace("/");
           return;
@@ -48,7 +49,6 @@ export default function ProtectedRoute({ children }) {
         // 🔥 Clear token
         await Preferences.remove({ key: "access_token" });
 
-        // 🔁 Redirect to login
         router.replace("/login");
       } finally {
         if (isMounted) setChecking(false);
@@ -62,10 +62,11 @@ export default function ProtectedRoute({ children }) {
     };
   }, [pathname, router]);
 
-  // ⏳ Loading screen
+  // ⏳ Loading UI
   if (checking) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center text-white text-md font-bold gap-4">
+        <h2>Please wait...</h2>
         <div className="w-16 h-16 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
       </div>
     );
