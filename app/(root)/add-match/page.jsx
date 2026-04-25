@@ -39,7 +39,7 @@ export default function TournamentForm() {
       entryType: "Solo",
       map: "Bermuda",
       totalSpots: 48,
-      prizes: [70], // initialize with 1 input
+      prizeDetails: [], // initialize with 1 input
     },
   });
 
@@ -54,6 +54,8 @@ export default function TournamentForm() {
     data.startTime = new Date(data.startTime);
 
     try {
+      data.prizeDetails = data.prizeDetails <= 0 ? [] : data.prizeDetails;
+
       const res = await axios.post("/api/addMatch", { data });
       if (res?.data?.success) {
         showToast("success", "Added successfully");
