@@ -100,11 +100,13 @@ export async function POST(req) {
       finalResults.push({
         name: joinedPlayer.name,
         authId: joinedPlayer.authId,
-        userName: joinedPlayer.name,
+        userName: joinedPlayer.userName,
         kills,
         winning,
       });
     }
+    // ✅ Sort players by winning (highest first)
+    finalResults.sort((a, b) => b.winning - a.winning);
 
     // ✅ Create ResultMatches (single doc)
     await ResultMatches.create(

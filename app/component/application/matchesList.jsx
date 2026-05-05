@@ -6,6 +6,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
 import Countdown from "@/app/component/countdown";
 import { useRouter } from "next/navigation";
+
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import ButtonLoading from "../buttonLoading";
+import { showToast } from "./tostify";
+import axios from "axios";
+import RoomPopup from "./roomDetalpopup";
+import PrizePopup from "./prizePopup";
+
 import {
   MatchType1,
   MatchType2,
@@ -28,54 +45,33 @@ import {
   MatchType9Img,
   MatchType10Img,
 } from "@/config";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { useForm } from "react-hook-form";
-import ButtonLoading from "../buttonLoading";
-import { showToast } from "./tostify";
-import axios from "axios";
-import RoomPopup from "./roomDetalpopup";
-import PrizePopup from "./prizePopup";
 
-const MATCH_TYPES = {
-  MatchType1,
-  MatchType2,
-  MatchType3,
-  MatchType4,
-  MatchType5,
-  MatchType6,
-  MatchType7,
-  MatchType8,
-  MatchType9,
-  MatchType10,
-};
-
-const MATCH_IMAGES = {
-  MatchType1Img,
-  MatchType2Img,
-  MatchType3Img,
-  MatchType4Img,
-  MatchType5Img,
-  MatchType6Img,
-  MatchType7Img,
-  MatchType8Img,
-  MatchType9Img,
-  MatchType10Img,
-};
-
+// ✅ helper to get image based on type
 const getMatchImage = (matchType) => {
-  const typeKey = Object.keys(MATCH_TYPES).find(
-    (key) => MATCH_TYPES[key] === matchType,
-  );
-  const imageKey = typeKey?.replace("MatchType", "MatchType") + "Img";
-  return MATCH_IMAGES[imageKey] || "/images/logo.jpg";
+  switch (matchType) {
+    case MatchType1:
+      return MatchType1Img;
+    case MatchType2:
+      return MatchType2Img;
+    case MatchType3:
+      return MatchType3Img;
+    case MatchType4:
+      return MatchType4Img;
+    case MatchType5:
+      return MatchType5Img;
+    case MatchType6:
+      return MatchType6Img;
+    case MatchType7:
+      return MatchType7Img;
+    case MatchType8:
+      return MatchType8Img;
+    case MatchType9:
+      return MatchType9Img;
+    case MatchType10:
+      return MatchType10Img;
+    default:
+      return "/images/logo.jpg";
+  }
 };
 
 const formatDate = (date) =>
@@ -96,10 +92,15 @@ const PlayMatch = ({ type }) => {
   const [error, setError] = useState(null);
   const [popupData, setPopupData] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const form = useForm({
-    defaultValues: { roomId: "", roomPass: "", notification: "" },
-  });
 
+  const defaultValues = {
+    roomId: "",
+    roomPass: "",
+    notification: "",
+  };
+  const form = useForm({
+    defaultValues,
+  });
   useEffect(() => {
     if (!type) return;
     const fetchMatches = async () => {
@@ -275,9 +276,13 @@ const PlayMatch = ({ type }) => {
                 <Button
                   onClick={(e) => {
                     e.stopPropagation();
-                    !hasRoomId
-                      ? setRoomIdFor(match._id)
-                      : showToast("success", "Room Id already saved");
+
+                    form.reset({
+                      roomId: match.roomId || "",
+                      roomPass: match.roomPass || "",
+                      notification: "",
+                    });
+                    setRoomIdFor(match._id);
                   }}
                   className={hasRoomId ? "bg-gray-500" : "bg-blue-600"}
                 >
@@ -332,11 +337,11 @@ const PlayMatch = ({ type }) => {
                 </Button>
               </div>
 
-              <div className="flex gap-3">
-                <div className="flex-1 p-2 bg-green-600 rounded text-center font-bold">
+              <div className="w-full flex justify-between gap-3">
+                <div className="w-2/3  p-2 bg-green-600 rounded text-center font-bold">
                   <Countdown targetDate={match.startTime} />
                 </div>
-                <div className="flex-1 p-2 bg-green-800 rounded text-center font-bold">
+                <div className="w-1/3  p-2 bg-green-800 rounded text-center font-bold">
                   #{match.serialNumber}
                 </div>
               </div>
@@ -369,12 +374,25 @@ const PlayMatch = ({ type }) => {
                   )}
                 />
               ))}
-              <ButtonLoading
-                type="submit"
-                className="w-full"
-                text="Save"
-                loading={loading}
-              />
+              <div className="flex justify-between w-full gap-4">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setRoomIdFor(null);
+                    form.reset();
+                  }}
+                  className="px-12 py-2 bg-gray-500 hover:bg-gray-400 text-white rounded"
+                >
+                  Cancel
+                </Button>
+
+                <ButtonLoading
+                  type="submit"
+                  className="px-12 py-2 text-white rounded"
+                  text="Save"
+                  loading={loading}
+                />
+              </div>
             </form>
           </Form>
         </div>
