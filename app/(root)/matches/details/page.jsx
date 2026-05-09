@@ -310,15 +310,22 @@ export default function MatchDetails() {
                     <React.Fragment key={player._id}>
                       {/* Main Row */}
                       <tr
-                        onClick={() =>
-                          dropUser({ playerId: player._id, name: player.name })
-                        }
                         className={`border-t border-gray-700 cursor-pointer ${
                           index % 2 === 0 ? "bg-gray-900" : "bg-gray-800"
                         }`}
                       >
                         <td className="p-2">{index + 1}</td>
-                        <td className="py-2">{player.name}</td>
+                        <td
+                          className="py-2"
+                          onClick={() =>
+                            dropUser({
+                              playerId: player._id,
+                              name: player.name,
+                            })
+                          }
+                        >
+                          {player.name}
+                        </td>
                         <td className="py-2">{player.userName}</td>
 
                         <td
