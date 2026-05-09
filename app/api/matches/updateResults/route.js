@@ -106,7 +106,7 @@ export async function POST(req) {
       });
     }
     // ✅ Sort players by winning (highest first)
-    finalResults.sort((a, b) => b.winning - a.winning);
+    await finalResults.sort((a, b) => b.winning - a.winning);
 
     // ✅ Create ResultMatches (single doc)
     await ResultMatches.create(

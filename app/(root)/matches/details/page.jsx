@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, use } from "react";
 import axios from "axios";
 import { useRouter, useSearchParams } from "next/navigation";
 import ButtonLoading from "@/app/component/buttonLoading";
 import { showToast } from "@/app/component/application/tostify";
+import { Preferences } from "@capacitor/preferences";
 
 export default function MatchDetails() {
   const searchParams = useSearchParams();
@@ -13,10 +14,13 @@ export default function MatchDetails() {
 
   const [match, setMatch] = useState(null);
   const [players, setPlayers] = useState([]);
+  const [draftFormData, setDraftFormData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [inputError, setInputError] = useState(false);
+  const [matchFound, setMatchFound] = useState(false);
+  const [openUserRow, setOpenUserRow] = useState(null);
 
   // ✅ total winning calculation
   const totalWinning = useMemo(() => {
@@ -32,8 +36,10 @@ export default function MatchDetails() {
 
         const res = await axios.get(`/api/matches/details/?matchId=${matchId}`);
 
-        setMatch(res.data.match);
-        setPlayers(res.data.match.joinedPlayers || []);
+        setMatch(res?.data?.match);
+        setPlayers(res?.data?.match.joinedPlayers || []);
+
+        setMatchFound(res?.data?.match.joinedPlayers.length > 0 ? true : false);
       } catch (err) {
         console.error("Fetch error:", err);
         showToast("error", "Failed to load match data");
@@ -45,32 +51,117 @@ export default function MatchDetails() {
     fetchData();
   }, [matchId]);
 
+  useEffect(() => {
+    const draftForm = async () => {
+      try {
+        const { value } = await Preferences.get({
+          key: "formDraft",
+        });
+
+        const draftData = JSON.parse(value);
+        setDraftFormData(draftData || []);
+      } catch (error) {
+        console.error("Error loading draft:", error);
+      }
+    };
+    draftForm();
+  }, []);
+
   // ✅ Input handler with strict validation
-  const handleInputChange = (index, field, value) => {
-    let val = Number(value);
+  const handleInputChange = async (playerIndex, authId, field, inputValue) => {
+    // Convert input to number
+    let val = Number(inputValue);
 
-    if (val < 0) val = 0;
+    // Prevent negative values
+    if (isNaN(val) || val < 0) {
+      val = 0;
+    }
 
-    const updated = [...players];
-    updated[index][field] = val;
+    // Clone players array safely
+    const updatedPlayers = [...players];
 
-    const newTotal = updated.reduce(
-      (sum, p) => sum + (Number(p.wining) || 0),
+    // Store previous value for rollback
+    const previousValue = updatedPlayers[playerIndex][field] || 0;
+
+    // Update current field
+    updatedPlayers[playerIndex][field] = val;
+
+    // Calculate total winning amount
+    const totalWinning = updatedPlayers.reduce(
+      (sum, player) => sum + (Number(player.wining) || 0),
       0,
     );
 
-    if (match?.winPrize && newTotal > match.winPrize) {
+    // Validate against prize limit
+    if (match?.winPrize && totalWinning > Number(match.winPrize)) {
       showToast("error", "Total winning exceeds prize limit!");
 
-      // revert change
-      updated[index][field] = players[index][field] || 0;
+      // Rollback change
+      updatedPlayers[playerIndex][field] = previousValue;
 
       setInputError(true);
-    } else {
-      setInputError(false);
+      setPlayers(updatedPlayers);
+
+      return;
     }
 
-    setPlayers(updated);
+    setInputError(false);
+
+    // Update UI state immediately
+    setPlayers(updatedPlayers);
+
+    try {
+      // Get existing draft data
+
+      const draftData = draftFormData || [];
+
+      // Find existing player draft
+      const existingIndex = draftData.findIndex(
+        (item) => item.authId === authId,
+      );
+
+      if (existingIndex !== -1) {
+        // Update existing entry
+        draftData[existingIndex] = {
+          ...draftData[existingIndex],
+          [field]: val,
+        };
+      } else {
+        // Create new entry
+
+        draftData.push({
+          matchId,
+          authId,
+          kills: field === "kills" ? val : 0,
+          wining: field === "wining" ? val : 0,
+        });
+      }
+
+      // Save updated draft
+      await Preferences.set({
+        key: "formDraft",
+        value: JSON.stringify(draftData),
+      });
+
+      console.log("Draft saved:", draftData);
+    } catch (error) {
+      console.error("Error saving draft:", error);
+    }
+  };
+
+  const dropUser = (id) => {
+    setOpenUserRow(openUserRow === id ? null : id);
+  };
+
+  const getValueFromDraft = (authId, field, value) => {
+    const draftEntry = draftFormData.find(
+      (entry) => entry.authId === authId && entry.matchId === matchId,
+    );
+    if (!draftEntry) return value;
+    if (field === "kills") return draftEntry.kills || value;
+    if (field === "wining") return draftEntry.wining || value;
+
+    return value;
   };
 
   const handleSave = async () => {
@@ -93,11 +184,16 @@ export default function MatchDetails() {
         results,
       });
 
-      if (res.data.success) {
+      if (res?.data?.success) {
+        // Clear draft data
+        await Preferences.set({
+          key: "formDraft",
+          value: JSON.stringify([]),
+        });
         showToast("success", "Results saved successfully!");
         router.back();
       } else {
-        showToast("error", res.data.message || "Failed to save results");
+        showToast("error", res?.data?.message || "Failed to save results");
       }
     } catch (err) {
       console.error("Save error:", err);
@@ -107,6 +203,40 @@ export default function MatchDetails() {
     }
   };
 
+  const handleUserSearch = (query) => {
+    if (!query) {
+      setPlayers(match.joinedPlayers || []);
+      return;
+    }
+    const filtered = (match.joinedPlayers || []).filter((p) =>
+      p.name.toLowerCase().includes(query.toLowerCase()),
+    );
+    setPlayers(filtered);
+  };
+
+  const deletSingleUser = async (playerId) => {
+    try {
+      setLoading(true);
+      const res = await axios.post(`/api/matches/removePlayer`, {
+        matchId,
+        playerId,
+      });
+
+      if (res?.data?.success) {
+        showToast("success", "Player removed successfully!");
+        // Update local state to reflect change
+        const updatedPlayers = players.filter((p) => p._id !== playerId);
+        setPlayers(updatedPlayers);
+      } else {
+        showToast("error", res?.data?.message || "Failed to remove player");
+      }
+    } catch (err) {
+      console.error("Remove error:", err);
+      showToast("error", "Server error! Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
   // ✅ Loading state
   if (fetching) {
     return (
@@ -146,61 +276,101 @@ export default function MatchDetails() {
       <div className="mt-8 border-t border-gray-700 pt-4">
         <h3 className="font-bold text-lg mb-3 text-center">Joined Players</h3>
 
-        {/* Total */}
-        <p className="text-right mt-2 text-sm text-gray-400">
-          Total Winning: {totalWinning}
-        </p>
-        {inputError && (
-          <p className="text-sm text-red-500 mb-4 text-center">
-            Total winning exceeds prize limit!
-          </p>
-        )}
-
-        {players.length > 0 ? (
-          <div className="max-h-screen overflow-y-auto bg-gray-900 rounded-lg border border-gray-700">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-800 text-gray-300">
-                  <th className="p-2">#</th>
-                  <th className="p-2">Player</th>
-                  <th className="p-2">Username</th>
-                  <th className="p-2">Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {players.map((player, index) => (
-                  <tr key={player._id} className="border-t border-gray-700">
-                    <td className="p-2 ">{index + 1}</td>
-                    <td className="p-2 ">{player.name}</td>
-                    <td className="p-2 ">{player.userName}</td>
-                    <td className="p-2  flex gap-3">
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="Kill"
-                        value={player.kills || ""}
-                        onChange={(e) =>
-                          handleInputChange(index, "kills", e.target.value)
-                        }
-                        className="border border-blue-600 bg-transparent px-2 py-1 w-12 rounded"
-                      />
-
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="Win"
-                        value={player.wining || ""}
-                        onChange={(e) =>
-                          handleInputChange(index, "wining", e.target.value)
-                        }
-                        className="border border-blue-600 bg-transparent px-2 py-1 w-12 rounded"
-                      />
-                    </td>
+        {matchFound ? (
+          <>
+            {inputError && (
+              <p className="text-sm text-red-500 mb-4 text-center">
+                Total winning exceeds prize limit!
+              </p>
+            )}
+            <div className="p-2 flex justify-between gap-3 w-full text-gray-300 text-sm font-semibold rounded-tl-lg rounded-tr-lg">
+              <input
+                onChange={(e) => handleUserSearch(e.target.value)}
+                type="text"
+                placeholder="Search by username"
+                className=" bg-transparent border border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {/* Total */}
+              <p className="text-right mt-2 text-sm text-gray-400">
+                Total Winning: {totalWinning}
+              </p>
+            </div>
+            <div className="max-h-screen overflow-y-auto bg-gray-900 rounded-lg border border-gray-700">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-600 text-green-300 text-left  ">
+                    <th className="p-2 ">#</th>
+                    <th className="p-2 ">Player</th>
+                    <th className="p-2 ">Username</th>
+                    <th className="p-2 ">Result</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="transition-all duration-300">
+                  {players.map((player, index) => (
+                    <React.Fragment key={player._id}>
+                      {/* Main Row */}
+                      <tr
+                        onClick={() =>
+                          dropUser({ playerId: player._id, name: player.name })
+                        }
+                        className={`border-t border-gray-700 cursor-pointer ${
+                          index % 2 === 0 ? "bg-gray-900" : "bg-gray-800"
+                        }`}
+                      >
+                        <td className="p-2">{index + 1}</td>
+                        <td className="py-2">{player.name}</td>
+                        <td className="py-2">{player.userName}</td>
+
+                        <td
+                          // colSpan={3}
+                          className="py-2 flex gap-3 justify-start items-center"
+                        >
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="Kill"
+                            value={getValueFromDraft(
+                              player.authId,
+                              "kills",
+                              player.kills || "",
+                            )}
+                            onChange={(e) =>
+                              handleInputChange(
+                                index,
+                                player.authId,
+                                "kills",
+                                e.target.value,
+                              )
+                            }
+                            className="border border-blue-600 bg-transparent px-2 py-1 w-12 rounded"
+                          />
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="Win"
+                            value={getValueFromDraft(
+                              player.authId,
+                              "wining",
+                              player.wining || "",
+                            )}
+                            onChange={(e) =>
+                              handleInputChange(
+                                index,
+                                player.authId,
+                                "wining",
+                                e.target.value,
+                              )
+                            }
+                            className="border border-blue-600 bg-transparent px-2 py-1 w-12 rounded"
+                          />
+                        </td>
+                      </tr>
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : (
           <p className="text-center text-gray-400">No players joined yet.</p>
         )}
@@ -229,7 +399,7 @@ export default function MatchDetails() {
           <div className="bg-gray-900 rounded-2xl p-6 w-[90%] max-w-md">
             <h2 className="text-xl font-bold mb-3">Confirm Submission</h2>
 
-            <p className="text-gray-300 mb-6">This action cannot be undone.</p>
+            <p className="text-gray-300 mb-6">All Player data will be saved.</p>
 
             <div className="flex gap-3">
               <button
@@ -253,6 +423,42 @@ export default function MatchDetails() {
                 }`}
               >
                 Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal */}
+      {openUserRow && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
+          <div className="bg-gray-900 rounded-2xl p-6 w-[90%] max-w-md">
+            <h2 className="text-xl font-bold mb-3">Confirm Submission</h2>
+
+            <p className="text-gray-300 mb-6">
+              Delete
+              <strong className=" text-green-400 bg-gray-700 px-4 py-1 rounded mx-2">
+                {openUserRow.name}
+              </strong>
+              from this match ?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setOpenUserRow(null)}
+                className="w-full bg-gray-700 py-2 rounded"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={async () => {
+                  setOpenUserRow(null);
+                  await deletSingleUser(openUserRow.playerId);
+                }}
+                disabled={inputError}
+                className="w-full py-2 rounded bg-red-600 "
+              >
+                Delete
               </button>
             </div>
           </div>
