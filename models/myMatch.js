@@ -7,6 +7,11 @@ const MyMatheschema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    name: {
+      type: String,
+      trim: true,
+      required: true,
+    },
     title: {
       type: String,
       required: true,
@@ -28,7 +33,7 @@ const MyMatheschema = new mongoose.Schema(
       trim: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 export default mongoose.models.MyMathes ||

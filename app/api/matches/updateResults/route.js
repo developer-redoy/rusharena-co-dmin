@@ -58,10 +58,10 @@ export async function POST(req) {
 
     // ✅ Process players
     for (const result of results) {
-      const { playerId, kills = 0, winning = 0 } = result;
+      const { playerId, playerName, kills = 0, winning = 0 } = result;
 
       const joinedPlayer = match.joinedPlayers.find(
-        (p) => p.authId === playerId,
+        (p) => p.authId === playerId && p.name === playerName,
       );
 
       if (!joinedPlayer) {
@@ -87,6 +87,7 @@ export async function POST(req) {
         [
           {
             userId: user._id,
+            name: playerName,
             title: match.title,
             time: match.startTime,
             myKills: kills.toString(),
@@ -127,6 +128,7 @@ export async function POST(req) {
       ],
       { session },
     );
+
     //delete match from Matches collection
     await Matches.findByIdAndDelete(matchId);
 
