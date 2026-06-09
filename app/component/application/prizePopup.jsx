@@ -37,15 +37,15 @@ const PrizePopup = ({ totalPrize, perKill, allPrize = [], onClose }) => {
                   {index === 0
                     ? "st"
                     : index === 1
-                    ? "nd"
-                    : index === 2
-                    ? "rd"
-                    : "th"}{" "}
+                      ? "nd"
+                      : index === 2
+                        ? "rd"
+                        : "th"}{" "}
                   Prize: <strong>{prize}</strong> Taka
                 </p>
               ))}
 
-            <p>
+            <p className="bg-gray-700 text-green-400 ">
               🔥 Per Kill: <strong>{perKill}</strong> Taka
             </p>
             <p className="font-bold my-4 text-yellow-400">

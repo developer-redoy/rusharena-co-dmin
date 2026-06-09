@@ -26,7 +26,7 @@ export default function Countdown({ targetDate }) {
       {timeLeft > 0 ? (
         <h2>
           {" "}
-          Start In -{days}d {hours}h {minutes}m {seconds}s
+          Start In: {days}d {hours}h {minutes}m {seconds}s
         </h2>
       ) : (
         <h2>Time Up</h2>

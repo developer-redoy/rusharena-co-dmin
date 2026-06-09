@@ -25,10 +25,9 @@ import { useSearchParams } from "next/navigation";
 import ButtonLoading from "@/app/component/buttonLoading";
 
 export default function TournamentForm() {
-  const [prizeInputsCount, setPrizeInputsCount] = useState(1); // dynamic inputs count
   const [loading, setLoading] = useState(false);
-
   const searchParams = useSearchParams();
+
   const form = useForm({
     defaultValues: {
       title: "",
@@ -39,24 +38,46 @@ export default function TournamentForm() {
       entryType: "Solo",
       map: "Bermuda",
       totalSpots: 48,
-      prizeDetails: [], // initialize with 1 input
+      prizeDetails: [""], // ✅ FIX: must be array with initial value
     },
   });
 
+  // ADD PRIZE
+  const addPrizeInput = () => {
+    const current = form.getValues("prizeDetails") || [];
+
+    if (current.length < 20) {
+      form.setValue("prizeDetails", [...current, ""]);
+    }
+  };
+
+  // REMOVE PRIZE
+  const removePrizeInput = (index) => {
+    const current = form.getValues("prizeDetails") || [];
+
+    if (current.length > 1) {
+      current.splice(index, 1);
+      form.setValue("prizeDetails", [...current]);
+    }
+  };
+
+  // SUBMIT
   const onSubmit = async (data) => {
     setLoading(true);
-    const matchType = searchParams.get("type");
 
-    // Include matchType
+    const matchType = searchParams.get("type");
     data.matchType = matchType;
 
-    // Convert startTime to Date
     data.startTime = new Date(data.startTime);
 
-    try {
-      data.prizeDetails = data.prizeDetails <= 0 ? [] : data.prizeDetails;
+    // FIX: clean numbers
+    data.prizeDetails = (data.prizeDetails || [])
+      .map(Number)
+      .filter((n) => !isNaN(n));
 
+    try {
       const res = await axios.post("/api/addMatch", { data });
+
       if (res?.data?.success) {
         showToast("success", "Added successfully");
       } else {
@@ -69,29 +90,13 @@ export default function TournamentForm() {
     }
   };
 
-  const addPrizeInput = () => {
-    if (prizeInputsCount < 20) {
-      setPrizeInputsCount(prizeInputsCount + 1);
-      form.setValue("prizes", [...form.getValues("prizes"), 0]);
-    }
-  };
-
-  const removePrizeInput = (index) => {
-    if (prizeInputsCount > 1) {
-      setPrizeInputsCount(prizeInputsCount - 1);
-      const prizes = form.getValues("prizes");
-      prizes.splice(index, 1);
-      form.setValue("prizes", prizes);
-    }
-  };
-
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-4 max-w-lg mx-auto p-4 border rounded"
       >
-        {/* Title */}
+        {/* TITLE */}
         <FormField
           control={form.control}
           name="title"
@@ -107,7 +112,7 @@ export default function TournamentForm() {
           )}
         />
 
-        {/* Date & Time */}
+        {/* DATE TIME */}
         <FormField
           control={form.control}
           name="startTime"
@@ -117,8 +122,8 @@ export default function TournamentForm() {
               <FormLabel>Date & Time</FormLabel>
               <FormControl>
                 <Input
-                  {...field}
                   type="datetime-local"
+                  value={field.value ?? ""}
                   onChange={(e) => field.onChange(e.target.value)}
                 />
               </FormControl>
@@ -127,7 +132,7 @@ export default function TournamentForm() {
           )}
         />
 
-        {/* Win Prize */}
+        {/* WIN PRIZE */}
         <FormField
           control={form.control}
           name="winPrize"
@@ -136,22 +141,26 @@ export default function TournamentForm() {
             <FormItem>
               <FormLabel>Win Prize</FormLabel>
               <FormControl>
-                <Input {...field} type="number" />
+                <Input
+                  type="number"
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Dynamic Prize Inputs */}
-        <div className="flex flex-col md:grid-cols-3 gap-3 border bg-black/5 p-3 rounded">
-          {Array.from({ length: prizeInputsCount }).map((_, index) => (
+        {/* PRIZE DETAILS */}
+        <div className="flex flex-col gap-3 border bg-black/5 p-3 rounded">
+          {form.watch("prizeDetails")?.map((_, index) => (
             <FormField
               key={index}
               control={form.control}
-              name={`prizes.${index}`}
+              name={`prizeDetails.${index}`}
               render={({ field }) => (
-                <FormItem className="flex flex-col">
+                <FormItem>
                   <FormLabel>
                     {index + 1}
                     {index === 0
@@ -166,10 +175,14 @@ export default function TournamentForm() {
 
                   <div className="flex gap-2 items-center">
                     <FormControl>
-                      <Input {...field} type="number" />
+                      <Input
+                        type="number"
+                        value={field.value ?? ""}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
                     </FormControl>
 
-                    {prizeInputsCount > 1 && (
+                    {form.watch("prizeDetails").length > 1 && (
                       <Button
                         type="button"
                         variant="destructive"
@@ -180,25 +193,23 @@ export default function TournamentForm() {
                     )}
                   </div>
 
-                  {/* 🔥 Updated limit to 20 */}
-                  {prizeInputsCount < 20 && index === prizeInputsCount - 1 && (
-                    <div className="flex items-center w-full">
+                  {form.watch("prizeDetails").length < 20 &&
+                    index === form.watch("prizeDetails").length - 1 && (
                       <Button
-                        className="w-full mt-2"
                         type="button"
+                        className="w-full mt-2"
                         onClick={addPrizeInput}
                       >
-                        +add
+                        + Add
                       </Button>
-                    </div>
-                  )}
+                    )}
                 </FormItem>
               )}
             />
           ))}
         </div>
 
-        {/* Per Kill */}
+        {/* PER KILL */}
         <FormField
           control={form.control}
           name="perKill"
@@ -207,14 +218,17 @@ export default function TournamentForm() {
             <FormItem>
               <FormLabel>Per Kill</FormLabel>
               <FormControl>
-                <Input {...field} type="number" />
+                <Input
+                  type="number"
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                />
               </FormControl>
-              <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Entry Fee */}
+        {/* ENTRY FEE */}
         <FormField
           control={form.control}
           name="entryFee"
@@ -223,71 +237,65 @@ export default function TournamentForm() {
             <FormItem>
               <FormLabel>Entry Fee</FormLabel>
               <FormControl>
-                <Input {...field} type="number" />
+                <Input
+                  type="number"
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                />
               </FormControl>
-              <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Entry Type & Map */}
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <FormField
-              control={form.control}
-              name="entryType"
-              rules={{ required: "Entry Type is required" }}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Entry Type</FormLabel>
-                  <FormControl>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Solo">Solo</SelectItem>
-                        <SelectItem value="Duo">Duo</SelectItem>
-                        <SelectItem value="Squad">Squad</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </div>
+        {/* ENTRY TYPE */}
+        <FormField
+          control={form.control}
+          name="entryType"
+          rules={{ required: "Entry Type is required" }}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Entry Type</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Solo">Solo</SelectItem>
+                  <SelectItem value="Duo">Duo</SelectItem>
+                  <SelectItem value="Squad">Squad</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormItem>
+          )}
+        />
 
-          <div className="flex-1">
-            <FormField
-              control={form.control}
-              name="map"
-              rules={{ required: "Map is required" }}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Map</FormLabel>
-                  <FormControl>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Map" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Bermuda">Bermuda</SelectItem>
-                        <SelectItem value="Bermuda 2.0">Bermuda 2.0</SelectItem>
-                        <SelectItem value="Lone Wolf">Lone Wolf</SelectItem>
-                        <SelectItem value="Kalahari">Kalahari</SelectItem>
-                        <SelectItem value="Purgatory">Purgatory</SelectItem>
-                        <SelectItem value="Alpine">Alpine</SelectItem>
-                        <SelectItem value="NeXTerra">NeXTerra</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </div>
-        </div>
+        {/* MAP */}
+        <FormField
+          control={form.control}
+          name="map"
+          rules={{ required: "Map is required" }}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Map</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Map" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Bermuda">Bermuda</SelectItem>
+                  <SelectItem value="Bermuda 2.0">Bermuda 2.0</SelectItem>
+                  <SelectItem value="Lone Wolf">Lone Wolf</SelectItem>
+                  <SelectItem value="Kalahari">Kalahari</SelectItem>
+                  <SelectItem value="Purgatory">Purgatory</SelectItem>
+                  <SelectItem value="Alpine">Alpine</SelectItem>
+                  <SelectItem value="NeXTerra">NeXTerra</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormItem>
+          )}
+        />
 
-        {/* Total Spots */}
+        {/* TOTAL SPOTS */}
         <FormField
           control={form.control}
           name="totalSpots"
@@ -296,18 +304,21 @@ export default function TournamentForm() {
             <FormItem>
               <FormLabel>Total Spots</FormLabel>
               <FormControl>
-                <Input {...field} type="number" />
+                <Input
+                  type="number"
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(Number(e.target.value))}
+                />
               </FormControl>
-              <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Submit */}
+        {/* SUBMIT */}
         <ButtonLoading
           type="submit"
           className="w-full mt-4"
-          text={" Save Tournament"}
+          text="Save Tournament"
           loading={loading}
         />
       </form>
