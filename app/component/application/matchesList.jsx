@@ -405,12 +405,13 @@ const PlayMatch = ({ type }) => {
               Confirm deletion?
             </h2>
             <div className="flex gap-4 justify-center">
-              <Button
-                className="bg-red-600 hover:bg-red-700"
-                onClick={() => deleteMatch(confirmDelete)}
-              >
-                Delete
-              </Button>
+              <ButtonLoading
+                className={`bg-red-600 hover:bg-red-700 `}
+                type="button"
+                text="Delete"
+                loading={loading}
+                onclick={() => deleteMatch(confirmDelete)}
+              />
               <Button variant="outline" onClick={() => setConfirmDelete(null)}>
                 Cancel
               </Button>
